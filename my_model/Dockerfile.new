@@ -1,7 +1,10 @@
-# Use the same base image as your production Triton server
-FROM nvcr.io/nvidia/tritonserver:24.10-pyt-python-py3
+ARG BASE_IMAGE=nvcr.io/nvidia/tritonserver:24.10-pyt-python-py3
+FROM ${BASE_IMAGE}
 
-# Install necessary build tools and dependencies
+ARG PYTHON_VERSION=3.8
+ARG GIT_BRANCH_NAME=r24.10
+ARG TRITON_ENABLE_GPU=OFF
+
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     cmake \
@@ -11,41 +14,39 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     git && \
     rm -rf /var/lib/apt/lists/*
 
-# Install Miniconda
+# Install miniconda for conda
 RUN curl -fsSL https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -o miniconda.sh && \
     bash miniconda.sh -b -p /opt/conda && \
     rm miniconda.sh && \
     /opt/conda/bin/conda update -n base -c defaults conda
 
-# Add Conda to PATH
 ENV PATH="/opt/conda/bin:$PATH"
+ENV PYTHONNOUSERSITE=True
 
-# Create Python 3.8 Conda environment and install dependencies
-RUN conda create -n py38_env python=3.8 -y && \
-    conda run -n py38_env pip install numpy && \
-    conda install -n py38_env conda-pack -y
+COPY ./requirements.txt ./requirements.txt
+
+RUN mkdir -p /artifacts
+
+# Createing Conda environment and install dependencies
+RUN conda create -n py_env python=${PYTHON_VERSION} -y && \
+    conda update -n base -c defaults conda && \
+    conda install -n py_env -c conda-forge libstdcxx-ng=12 -y && \
+    conda install -n py_env conda-pack -y && \
+    conda run -n py_env pip install -r ./requirements.txt && \
+    conda run -n py_env conda-pack -o /artifacts/py_env${PYTHON_VERSION}.tar.gz
 
 # Clone the Triton Python backend repository
-ARG GIT_BRANCH_NAME=r24.10  # Replace with the appropriate branch
 RUN git clone https://github.com/triton-inference-server/python_backend -b ${GIT_BRANCH_NAME} && \
     cd python_backend && \
     mkdir build
 
-RUN mkdir -p /artifacts
 
 # Build the Triton Python backend stub with Conda environment activated
-RUN conda run -n py38_env cmake -Bpython_backend/build \
-      -DTRITON_ENABLE_GPU=OFF \
+RUN conda run -n py_env cmake -Bpython_backend/build \
+      -DTRITON_ENABLE_GPU=${TRITON_ENABLE_GPU} \
       -DTRITON_BACKEND_REPO_TAG=${GIT_BRANCH_NAME} \
       -DTRITON_COMMON_REPO_TAG=${GIT_BRANCH_NAME} \
       -DTRITON_CORE_REPO_TAG=${GIT_BRANCH_NAME} \
       -DCMAKE_INSTALL_PREFIX:PATH=python_backend/build/install python_backend && \
-    conda run -n py38_env cmake --build python_backend/build --target triton-python-backend-stub && \
+    conda run -n py_env cmake --build python_backend/build --target triton-python-backend-stub && \
     cp python_backend/build/triton_python_backend_stub /artifacts/
-
-# Pack the Conda environment into a tarball
-RUN conda run -n py38_env conda-pack -o /artifacts/python38_env.tar.gz
-
-# # Final stage to output artifacts
-# FROM ubuntu:20.04
-# COPY --from=0 /artifacts /artifacts
