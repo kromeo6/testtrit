@@ -22,11 +22,23 @@ pyannote.audio 1.1.1 release cant run in python 3.10 environment because of depe
    ``` 
    The `BASE_IMAGE` has to be the Docker image that is currently used in production
 2. Build the image and run:
-   ```bash
-   cd buld-artifacts
-   docker build -t triton-mage .
-   bash build-artifacts.sh
+   ```
+    $ cd buld-artifacts
+    $ docker build -t triton-mage .
+    $ bash build-artifacts.sh
    ```
 ## Python backend with conda-pack and python stub
 
 Generated files, `py_env.tar.gz` and `triton_python_backend_stub` has to be moved to `models/vad` directory 
+
+```
+models
+|-- model_a
+|   |-- 1
+|   |   `-- model.py
+|   |-- config.pbtxt
+|   |-- python3.6.tar.gz
+|   `-- triton_python_backend_stub
+```
+
+   
