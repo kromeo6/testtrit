@@ -11,5 +11,5 @@ jobs:
       runs-on: ubuntu-latest
       steps:
         - name: test-step
-          run: echo "from main"
+          run: echo "from test"
     
