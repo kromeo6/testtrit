@@ -4,3 +4,12 @@ on:
   workflow_dispatch:
   push:
     branches: ["main", "test-*"]
+
+
+jobs:
+  my-job:
+      runs-on: ubuntu-latest
+      steps:
+        - name: test-step
+          run: echo "from main"
+    
